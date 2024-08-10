@@ -1202,3 +1202,41 @@ describe("object type strictness", async () => {
     );
   });
 });
+
+describe("long table names", async () => {
+  await it("should work with long table names and multiple users", async () => {
+    const db = dbNameGenerator();
+    const user1 = userNameGenerator();
+    const user2 = userNameGenerator();
+    const useClient1 = dbClientGenerator(dbUrl(user1, "blah", db));
+    const useClient2 = dbClientGenerator(dbUrl(user2, "blah", db));
+    
+    let teardown: () => Promise<void> = async () => {};
+
+    before(async () => {
+      teardown = await setupEnv("long-table-name", "long-table-name", db, {
+        user1,
+        user2
+      });
+    });
+
+    after(async () => {
+      await teardown();
+    });
+
+    for (const [user, useClient] of [
+      ["user1", useClient1],
+      ["user2", useClient2],
+    ] as const) {
+      await it(`${user}: can access test.articles_but_with_an_extremely_long_table_name`, async () => {
+        await useClient(async (client) => {
+          const result = await client.query("SELECT * FROM test.articles_but_with_an_extremely_long_table_name");
+          assert.equal(result.rowCount, 4);
+        });
+      });
+    }
+  })
+})
+  
+
+  
