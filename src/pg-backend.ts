@@ -409,7 +409,8 @@ export class PostgresBackend implements SQLBackend {
           .map((meta) => this.quoteQualifiedName(meta.table));
 
         const tablesToCreateDefaultPolicy = Array.from(tableMetadatum)
-          .filter(it => !it.defaultPolicyExists)
+          .filter(it => !it.defaultPolicyExists && 
+              (it.rlsEnabled || tablesToEnableRLS.includes(this.quoteQualifiedName(it.table))))
           .map((meta) => this.quoteQualifiedName(meta.table));
 
         const rlsQueries = tablesToEnableRLS

@@ -273,7 +273,8 @@ export class PostgresBackend {
                     .filter(it => !it.rlsEnabled)
                     .map((meta) => this.quoteQualifiedName(meta.table));
                 const tablesToCreateDefaultPolicy = Array.from(tableMetadatum)
-                    .filter(it => !it.defaultPolicyExists)
+                    .filter(it => !it.defaultPolicyExists &&
+                    (it.rlsEnabled || tablesToEnableRLS.includes(this.quoteQualifiedName(it.table))))
                     .map((meta) => this.quoteQualifiedName(meta.table));
                 const rlsQueries = tablesToEnableRLS
                     .map((tableName) => `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY;`);
