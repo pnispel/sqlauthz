@@ -943,7 +943,7 @@ describe("test-complete-1", async () => {
           "INSERT INTO app.users (name, org_id) VALUES ('cam', '42');",
         ),
         {
-          message: `new row violates row-level security policy "insert_app_users_${user3}" for table "users"`,
+          message: `new row violates row-level security policy "insert_${user3}" for table "users"`,
         },
       );
     });

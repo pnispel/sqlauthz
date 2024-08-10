@@ -560,8 +560,6 @@ export class PostgresBackend implements SQLBackend {
             if (!isTrueClause(permission.rowClause)) {
               const policyName = [
                 permission.privilege,
-                permission.table.schema,
-                permission.table.name,
                 permission.user.name,
               ]
                 .join("_")
@@ -588,8 +586,6 @@ export class PostgresBackend implements SQLBackend {
             if (!isTrueClause(permission.rowClause)) {
               const policyName = [
                 permission.privilege,
-                permission.table.schema,
-                permission.table.name,
                 permission.user.name,
               ]
                 .join("_")
@@ -615,8 +611,6 @@ export class PostgresBackend implements SQLBackend {
             if (!isTrueClause(permission.rowClause)) {
               const policyName = [
                 permission.privilege,
-                permission.table.schema,
-                permission.table.name,
                 permission.user.name,
               ]
                 .join("_")
