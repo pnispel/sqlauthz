@@ -15,9 +15,7 @@
     "bumpversion": "bump --commit --tag",
     "npm-publish": "scripts/publish.sh"
   },
-  "bin": {
-    "sqlauthz": "./dist/cli.js"
-  },
+  "bin": "./dist/cli.js",
   "keywords": [
     "postgresql",
     "oso",
