@@ -245,7 +245,7 @@ export class PostgresBackend {
                 const revokeQueries = users.map((user) => `SELECT ${tmpSchema}.revoke_all_from_role('${user.name}');`);
                 const userNames = new Set(users.map((user) => user.name));
                 const policiesToDrop = entities.rlsPolicies.filter((policy) => policy.users.some((user) => userNames.has(user.name)));
-                const dropQueries = policiesToDrop.map((policy) => `DROP POLICY ${this.quoteIdentifier(policy.name)} ` +
+                const dropQueries = policiesToDrop.map((policy) => `DROP POLICY IF EXISTS ${this.quoteIdentifier(policy.name)} ` +
                     `ON ${this.quoteQualifiedName(policy.table)};`);
                 return revokeQueries.concat(dropQueries);
             },

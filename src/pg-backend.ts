@@ -374,7 +374,7 @@ export class PostgresBackend implements SQLBackend {
         );
         const dropQueries = policiesToDrop.map(
           (policy) =>
-            `DROP POLICY ${this.quoteIdentifier(policy.name)} ` +
+            `DROP POLICY IF EXISTS ${this.quoteIdentifier(policy.name)} ` +
             `ON ${this.quoteQualifiedName(policy.table)};`,
         );
 
