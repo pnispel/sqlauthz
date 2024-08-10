@@ -187,6 +187,27 @@ export class PostgresBackend implements SQLBackend {
         `,
       );
 
+    const getDefaultPolicyExists = async (tableName: string, schema: string) => {
+      const policyExists = await this.client.query<{ exists: boolean }>(
+        `
+        SELECT EXISTS (
+          SELECT 1
+          FROM pg_policies
+          WHERE tablename = $1
+            AND schemaname = $2
+            AND policytype = 'PERMISSIVE'
+            AND roles = '{public}'
+            AND cmd = 'ALL'
+            AND qual = 'true'
+        )
+        `,
+        [tableName, schema]
+      );
+    
+      return policyExists.rows[0]?.exists;
+    };
+      
+
     const [
       users,
       groups,
@@ -216,6 +237,7 @@ export class PostgresBackend implements SQLBackend {
         type: "table-metadata",
         table: { type: "table", name: table.name, schema: table.schema },
         rlsEnabled: table.rlsEnabled,
+        defaultPolicyExists: await getDefaultPolicyExists(table.name, table.schema) || false,
         columns: [],
       };
     }
@@ -366,7 +388,7 @@ export class PostgresBackend implements SQLBackend {
           ]),
         );
 
-        const tablesToAddRlsTo = new Set<string>();
+        const tableMetadatum = new Set<SQLTableMetadata>();
         for (const perm of permissions) {
           if (perm.type !== "table") {
             continue;
@@ -379,24 +401,31 @@ export class PostgresBackend implements SQLBackend {
           if (!table) {
             continue;
           }
-          if (table.rlsEnabled) {
-            continue;
-          }
-          tablesToAddRlsTo.add(tableName);
+          tableMetadatum.add(table);
         }
 
-        const rlsQueries = Array.from(tablesToAddRlsTo).flatMap((tableName) => [
-          `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY;`,
+        const tablesToEnableRLS = Array.from(tableMetadatum)
+          .filter(it => !it.rlsEnabled)
+          .map((meta) => this.quoteQualifiedName(meta.table));
+
+        const tablesToCreateDefaultPolicy = Array.from(tableMetadatum)
+          .filter(it => !it.defaultPolicyExists)
+          .map((meta) => this.quoteQualifiedName(meta.table));
+
+        const rlsQueries = tablesToEnableRLS
+          .map((tableName) => `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY;`);
+
+        const createPolicyQueries = tablesToCreateDefaultPolicy.flatMap((tableName) => [
+          `DROP POLICY IF EXISTS "default_access" ON ${tableName};`,
           // biome-ignore lint: best way to do this
-          `CREATE POLICY "default_access" ON ${tableName} AS PERMISSIVE FOR ` +
-            "ALL TO PUBLIC USING (true);",
+          `CREATE POLICY "default_access" ON ${tableName} AS PERMISSIVE FOR ALL TO PUBLIC USING (true);`,
         ]);
 
         const individualGrantQueries = permissions.flatMap((perm) =>
           this.compileGrantQuery(perm, entities),
         );
 
-        return rlsQueries.concat(individualGrantQueries);
+        return rlsQueries.concat(createPolicyQueries).concat(individualGrantQueries);
       },
     };
   }
