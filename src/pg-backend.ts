@@ -195,7 +195,7 @@ export class PostgresBackend implements SQLBackend {
           FROM pg_policies
           WHERE tablename = $1
             AND schemaname = $2
-            AND policytype = 'PERMISSIVE'
+            AND permissive = 'PERMISSIVE'
             AND roles = '{public}'
             AND cmd = 'ALL'
             AND qual = 'true'
