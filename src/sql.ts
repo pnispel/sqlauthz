@@ -17,7 +17,6 @@ export interface SQLTableMetadata {
   type: "table-metadata";
   table: SQLTable;
   rlsEnabled: boolean;
-  defaultPolicyExists: boolean;
   columns: string[];
 }
 
