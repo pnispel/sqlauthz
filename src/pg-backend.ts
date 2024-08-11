@@ -388,20 +388,20 @@ export class PostgresBackend implements SQLBackend {
 						`ALTER TABLE ${this.quoteQualifiedName(meta.table)} ENABLE ROW LEVEL SECURITY;`,
 					);
 
-          rlsEnablements.add(
+					rlsEnablements.add(
 						`DROP POLICY IF EXISTS "default_access" ON ${this.quoteQualifiedName(meta.table)};`,
 					);
 				});
 
-        const out = new Set<string>([
-          ...Array.from(rlsEnablements),
-          ...Array.from(defaultPolices),
-          ...permissions.flatMap((perm) => {
-            return [...this.compileGrantQuery(perm, entities)];
-          }),
-        ]);
+				const out = new Set<string>([
+					...Array.from(rlsEnablements),
+					...Array.from(defaultPolices),
+					...permissions.flatMap((perm) => {
+						return [...this.compileGrantQuery(perm, entities)];
+					}),
+				]);
 
-        return Array.from(out);
+				return Array.from(out);
 			},
 		};
 	}
@@ -535,13 +535,15 @@ export class PostgresBackend implements SQLBackend {
 							`GRANT SELECT${columnPart} ON ${this.quoteQualifiedName(
 								permission.table,
 							)} TO ${this.quoteTopLevelName(permission.user)};`,
-              // `CREATE POLICY ${this.quoteIdentifier(`default_access_${perm.user.name}`)} ON ${this.quoteQualifiedName(meta.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(perm.user)} USING (true);`,
-              `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
 						];
 						if (!isTrueClause(permission.rowClause)) {
 							const policyName = [permission.privilege, permission.user.name]
 								.join("_")
 								.toLowerCase();
+
+							out.push(
+								`CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
+							);
 
 							out.push(
 								`CREATE POLICY ${this.quoteIdentifier(
@@ -560,13 +562,15 @@ export class PostgresBackend implements SQLBackend {
 							`GRANT INSERT${columnPart} ON ${this.quoteQualifiedName(
 								permission.table,
 							)} TO ${this.quoteTopLevelName(permission.user)};`,
-              `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
 						];
 						if (!isTrueClause(permission.rowClause)) {
 							const policyName = [permission.privilege, permission.user.name]
 								.join("_")
 								.toLowerCase();
 
+							out.push(
+								`CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
+							);
 							out.push(
 								`CREATE POLICY ${this.quoteIdentifier(
 									policyName,
@@ -584,12 +588,15 @@ export class PostgresBackend implements SQLBackend {
 							`GRANT UPDATE${columnPart} ON ${this.quoteQualifiedName(
 								permission.table,
 							)} TO ${this.quoteTopLevelName(permission.user)};`,
-              `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
 						];
 						if (!isTrueClause(permission.rowClause)) {
 							const policyName = [permission.privilege, permission.user.name]
 								.join("_")
 								.toLowerCase();
+
+							out.push(
+								`CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
+							);
 
 							out.push(
 								`CREATE POLICY ${this.quoteIdentifier(
@@ -607,13 +614,14 @@ export class PostgresBackend implements SQLBackend {
 						const out = [
 							`GRANT DELETE ON ${this.quoteQualifiedName(permission.table)} ` +
 								`TO ${this.quoteTopLevelName(permission.user)};`,
-              `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
 						];
 						if (!isTrueClause(permission.rowClause)) {
 							const policyName = [permission.privilege, permission.user.name]
 								.join("_")
 								.toLowerCase();
-
+							out.push(
+								`CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
+							);
 							out.push(
 								`CREATE POLICY ${this.quoteIdentifier(
 									policyName,

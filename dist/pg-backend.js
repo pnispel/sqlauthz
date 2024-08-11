@@ -371,13 +371,12 @@ export class PostgresBackend {
                     case "SELECT": {
                         const out = [
                             `GRANT SELECT${columnPart} ON ${this.quoteQualifiedName(permission.table)} TO ${this.quoteTopLevelName(permission.user)};`,
-                            // `CREATE POLICY ${this.quoteIdentifier(`default_access_${perm.user.name}`)} ON ${this.quoteQualifiedName(meta.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(perm.user)} USING (true);`,
-                            `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
                         ];
                         if (!isTrueClause(permission.rowClause)) {
                             const policyName = [permission.privilege, permission.user.name]
                                 .join("_")
                                 .toLowerCase();
+                            out.push(`CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`);
                             out.push(`CREATE POLICY ${this.quoteIdentifier(policyName)} ON ${this.quoteQualifiedName(permission.table)} AS RESTRICTIVE FOR SELECT TO ${this.quoteTopLevelName(permission.user)} USING (${this.clauseToSql(permission.rowClause)});`);
                         }
                         return out;
@@ -385,12 +384,12 @@ export class PostgresBackend {
                     case "INSERT": {
                         const out = [
                             `GRANT INSERT${columnPart} ON ${this.quoteQualifiedName(permission.table)} TO ${this.quoteTopLevelName(permission.user)};`,
-                            `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
                         ];
                         if (!isTrueClause(permission.rowClause)) {
                             const policyName = [permission.privilege, permission.user.name]
                                 .join("_")
                                 .toLowerCase();
+                            out.push(`CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`);
                             out.push(`CREATE POLICY ${this.quoteIdentifier(policyName)} ON ${this.quoteQualifiedName(permission.table)} AS RESTRICTIVE FOR INSERT TO ${this.quoteTopLevelName(permission.user)} WITH CHECK (${this.clauseToSql(permission.rowClause)});`);
                         }
                         return out;
@@ -398,12 +397,12 @@ export class PostgresBackend {
                     case "UPDATE": {
                         const out = [
                             `GRANT UPDATE${columnPart} ON ${this.quoteQualifiedName(permission.table)} TO ${this.quoteTopLevelName(permission.user)};`,
-                            `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
                         ];
                         if (!isTrueClause(permission.rowClause)) {
                             const policyName = [permission.privilege, permission.user.name]
                                 .join("_")
                                 .toLowerCase();
+                            out.push(`CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`);
                             out.push(`CREATE POLICY ${this.quoteIdentifier(policyName)} ON ${this.quoteQualifiedName(permission.table)} AS RESTRICTIVE FOR UPDATE TO ${this.quoteTopLevelName(permission.user)} USING (${this.clauseToSql(permission.rowClause)});`);
                         }
                         return out;
@@ -412,12 +411,12 @@ export class PostgresBackend {
                         const out = [
                             `GRANT DELETE ON ${this.quoteQualifiedName(permission.table)} ` +
                                 `TO ${this.quoteTopLevelName(permission.user)};`,
-                            `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
                         ];
                         if (!isTrueClause(permission.rowClause)) {
                             const policyName = [permission.privilege, permission.user.name]
                                 .join("_")
                                 .toLowerCase();
+                            out.push(`CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`);
                             out.push(`CREATE POLICY ${this.quoteIdentifier(policyName)} ON ${this.quoteQualifiedName(permission.table)} AS RESTRICTIVE FOR DELETE TO ${this.quoteTopLevelName(permission.user)} USING (${this.clauseToSql(permission.rowClause)});`);
                         }
                         return out;
