@@ -108,21 +108,6 @@ export class PostgresBackend {
             AND sequence_schema != 'pg_catalog'
             AND sequence_schema != 'pg_toast'
         `);
-        const getDefaultPolicyExists = async (tableName, schema) => {
-            const policyExists = await this.client.query(`
-        SELECT EXISTS (
-          SELECT 1
-          FROM pg_policies
-          WHERE tablename = $1
-            AND schemaname = $2
-            AND permissive = 'PERMISSIVE'
-            AND roles = '{public}'
-            AND cmd = 'ALL'
-            AND qual = 'true'
-        )
-        `, [tableName, schema]);
-            return policyExists.rows[0]?.exists;
-        };
         const [users, groups, tables, tableColumns, schemas, views, policies, functionsAndProcedures, sequences,] = await Promise.all([
             getUsers(),
             getGroups(),
@@ -141,7 +126,6 @@ export class PostgresBackend {
                 type: "table-metadata",
                 table: { type: "table", name: table.name, schema: table.schema },
                 rlsEnabled: table.rlsEnabled,
-                defaultPolicyExists: await getDefaultPolicyExists(table.name, table.schema) || false,
                 columns: [],
             };
         }
@@ -254,37 +238,33 @@ export class PostgresBackend {
                     this.quoteQualifiedName(table.table),
                     table,
                 ]));
-                const tableMetadatum = new Set();
-                for (const perm of permissions) {
+                const getMetaForPermission = (perm) => {
                     if (perm.type !== "table") {
-                        continue;
+                        return null;
                     }
                     if (isTrueClause(perm.rowClause)) {
-                        continue;
+                        return null;
                     }
                     const tableName = this.quoteQualifiedName(perm.table);
-                    const table = metaByTable[tableName];
-                    if (!table) {
-                        continue;
-                    }
-                    tableMetadatum.add(table);
-                }
-                const tablesToEnableRLS = Array.from(tableMetadatum)
-                    .filter(it => !it.rlsEnabled)
-                    .map((meta) => this.quoteQualifiedName(meta.table));
-                const tablesToCreateDefaultPolicy = Array.from(tableMetadatum)
-                    .filter(it => !it.defaultPolicyExists &&
-                    (it.rlsEnabled || tablesToEnableRLS.includes(this.quoteQualifiedName(it.table))))
-                    .map((meta) => this.quoteQualifiedName(meta.table));
-                const rlsQueries = tablesToEnableRLS
-                    .map((tableName) => `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY;`);
-                const createPolicyQueries = tablesToCreateDefaultPolicy.flatMap((tableName) => [
-                    `DROP POLICY IF EXISTS "default_access" ON ${tableName};`,
-                    // biome-ignore lint: best way to do this
-                    `CREATE POLICY "default_access" ON ${tableName} AS PERMISSIVE FOR ALL TO PUBLIC USING (true);`,
+                    return metaByTable[tableName];
+                };
+                const rlsEnablements = new Set();
+                const defaultPolices = new Set();
+                permissions.forEach((perm) => {
+                    const meta = getMetaForPermission(perm);
+                    if (!meta)
+                        return;
+                    rlsEnablements.add(`ALTER TABLE ${this.quoteQualifiedName(meta.table)} ENABLE ROW LEVEL SECURITY;`);
+                    rlsEnablements.add(`DROP POLICY IF EXISTS "default_access" ON ${this.quoteQualifiedName(meta.table)};`);
+                });
+                const out = new Set([
+                    ...Array.from(rlsEnablements),
+                    ...Array.from(defaultPolices),
+                    ...permissions.flatMap((perm) => {
+                        return [...this.compileGrantQuery(perm, entities)];
+                    }),
                 ]);
-                const individualGrantQueries = permissions.flatMap((perm) => this.compileGrantQuery(perm, entities));
-                return rlsQueries.concat(createPolicyQueries).concat(individualGrantQueries);
+                return Array.from(out);
             },
         };
     }
@@ -391,12 +371,11 @@ export class PostgresBackend {
                     case "SELECT": {
                         const out = [
                             `GRANT SELECT${columnPart} ON ${this.quoteQualifiedName(permission.table)} TO ${this.quoteTopLevelName(permission.user)};`,
+                            // `CREATE POLICY ${this.quoteIdentifier(`default_access_${perm.user.name}`)} ON ${this.quoteQualifiedName(meta.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(perm.user)} USING (true);`,
+                            `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
                         ];
                         if (!isTrueClause(permission.rowClause)) {
-                            const policyName = [
-                                permission.privilege,
-                                permission.user.name,
-                            ]
+                            const policyName = [permission.privilege, permission.user.name]
                                 .join("_")
                                 .toLowerCase();
                             out.push(`CREATE POLICY ${this.quoteIdentifier(policyName)} ON ${this.quoteQualifiedName(permission.table)} AS RESTRICTIVE FOR SELECT TO ${this.quoteTopLevelName(permission.user)} USING (${this.clauseToSql(permission.rowClause)});`);
@@ -406,12 +385,10 @@ export class PostgresBackend {
                     case "INSERT": {
                         const out = [
                             `GRANT INSERT${columnPart} ON ${this.quoteQualifiedName(permission.table)} TO ${this.quoteTopLevelName(permission.user)};`,
+                            `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
                         ];
                         if (!isTrueClause(permission.rowClause)) {
-                            const policyName = [
-                                permission.privilege,
-                                permission.user.name,
-                            ]
+                            const policyName = [permission.privilege, permission.user.name]
                                 .join("_")
                                 .toLowerCase();
                             out.push(`CREATE POLICY ${this.quoteIdentifier(policyName)} ON ${this.quoteQualifiedName(permission.table)} AS RESTRICTIVE FOR INSERT TO ${this.quoteTopLevelName(permission.user)} WITH CHECK (${this.clauseToSql(permission.rowClause)});`);
@@ -421,12 +398,10 @@ export class PostgresBackend {
                     case "UPDATE": {
                         const out = [
                             `GRANT UPDATE${columnPart} ON ${this.quoteQualifiedName(permission.table)} TO ${this.quoteTopLevelName(permission.user)};`,
+                            `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
                         ];
                         if (!isTrueClause(permission.rowClause)) {
-                            const policyName = [
-                                permission.privilege,
-                                permission.user.name,
-                            ]
+                            const policyName = [permission.privilege, permission.user.name]
                                 .join("_")
                                 .toLowerCase();
                             out.push(`CREATE POLICY ${this.quoteIdentifier(policyName)} ON ${this.quoteQualifiedName(permission.table)} AS RESTRICTIVE FOR UPDATE TO ${this.quoteTopLevelName(permission.user)} USING (${this.clauseToSql(permission.rowClause)});`);
@@ -437,12 +412,10 @@ export class PostgresBackend {
                         const out = [
                             `GRANT DELETE ON ${this.quoteQualifiedName(permission.table)} ` +
                                 `TO ${this.quoteTopLevelName(permission.user)};`,
+                            `CREATE POLICY ${this.quoteIdentifier(`default_access_${permission.user.name}`)} ON ${this.quoteQualifiedName(permission.table)} AS PERMISSIVE FOR ALL TO ${this.quoteTopLevelName(permission.user)} USING (true);`,
                         ];
                         if (!isTrueClause(permission.rowClause)) {
-                            const policyName = [
-                                permission.privilege,
-                                permission.user.name,
-                            ]
+                            const policyName = [permission.privilege, permission.user.name]
                                 .join("_")
                                 .toLowerCase();
                             out.push(`CREATE POLICY ${this.quoteIdentifier(policyName)} ON ${this.quoteQualifiedName(permission.table)} AS RESTRICTIVE FOR DELETE TO ${this.quoteTopLevelName(permission.user)} USING (${this.clauseToSql(permission.rowClause)});`);
